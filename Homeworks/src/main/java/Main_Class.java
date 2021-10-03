@@ -29,7 +29,7 @@ public class Main_Class {
 
     public static void printColor()
     {
-        int value = 69;
+        int value = 68;
 
         if(value <=0)
         {
