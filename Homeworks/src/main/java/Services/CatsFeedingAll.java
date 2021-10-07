@@ -11,7 +11,8 @@ public class CatsFeedingAll {
         for(int i = 0; i < catsArr.length; i++) {
             catsArr[i].eat(plate);                             //попутно кормим их из тарелки с кормом
             //5...выведем информацию о сытости котов
-            System.out.println(catsArr[i].getisFull() ? "Кот_" + (i + 1) + " наелся" : "Кот_" + (i + 1) + " не наелся");
+            System.out.println(catsArr[i].getisFull() ? "Кот " + catsArr[i].getName() + " наелся" : "Кот "
+                    + catsArr[i].getName()+ " не наелся");
             plate.info();               //смотрим, сколько осталось корма на тарелке
 
             if (!catsArr[i].getisFull()) {    //если котик не наелся, нужно добавить 10 еды в тарелку

@@ -5,6 +5,7 @@ import Services.CatsFeedingAll;
 import java.util.Random;
 
 public class Main_Class {
+
     //Создали пустой main класс
     public static void main(String[] args) {
         Random rand = new Random();
@@ -18,5 +19,7 @@ public class Main_Class {
         }
         CatsFeedingAll CatsFeeding = new CatsFeedingAll();
         CatsFeeding.feeding(catsArr,plate,10); //Вызовем метод массовой кормежки котов с добавкой по 10 ед. корма
+
     }
+
 }
