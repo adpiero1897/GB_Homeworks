@@ -6,6 +6,8 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+
 <VBox fx:id="VBOX" alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.example.chat_window_javafx.ChatWindowController" >
     <padding>
@@ -15,7 +17,14 @@
 
     <TextArea fx:id="chatTextArea" VBox.vgrow="ALWAYS" editable="false"/>
 
-    <Button fx:id="SendButton" text="Отправить" nodeOrientation="RIGHT_TO_LEFT" onAction="#onSendClick" />
+    <HBox  alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS" >
+        <padding>
+            <Insets top="10" bottom="1" left="5" right="5"/>
+        </padding>
 
-    <TextField fx:id="SendText" promptText="Введите текст вашего сообщения" onAction="#onSendClick"  />
+        <TextField fx:id="SendText" nodeOrientation="LEFT_TO_RIGHT" prefColumnCount="35"
+                   promptText="Введите текст вашего сообщения "
+                   onAction="#onSendClick"/>
+        <Button fx:id="SendButton" text="Отправить" onAction="#onSendClick"/>
+    </HBox>
 </VBox>
