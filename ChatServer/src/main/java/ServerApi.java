@@ -1,9 +1,5 @@
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Scanner;
 
 /*1. Написать консольный вариант клиент\серверного приложения, в котором пользователь может писать сообщения, как на
 клиентской стороне, так и на серверной. Т.е. если на клиентской стороне написать "Привет", нажать Enter то сообщение
@@ -16,28 +12,14 @@ import java.util.Scanner;
 
 public class ServerApi {
 
-    static Socket socket = null;
-    static DataInputStream in;
-    static DataOutputStream out;
-
-
     public static void main(String[] args) {
-
+        ServerChat.serverInputListener();
         while (true) {  //Внешний цикл постоянной работы сервера. Если соединение прервано, мы готовы наладить новое
+            //переходим в режим ввода сообщений с консоли сервера (создаем поток, постоянно читающий консоль)
+            //ServerChat.serverInputListener();
             //откроем соединение и подготовим сокет
             try (ServerSocket serverSocket = new ServerSocket(8181)) {
-                System.out.println("Сервер запущен, ожидаем подключения...");
-                socket = serverSocket.accept();
-
-                System.out.println("Клиент подключился к вашему серверу сетевого чата! " + '\n');
-                in = new DataInputStream(socket.getInputStream());
-                out = new DataOutputStream(socket.getOutputStream());
-
-                Thread threadReader = new Thread(new ServerChat.ThreadClientListener(socket, in, out));
-                //Запускаем задачу-поток, занимающийся чтением сокета связи с клиентом и ответами ему
-                threadReader.start();
-                //переходим в режим ввода сообщений с консоли сервера
-                ServerChat.serverInputListener(out);
+                ServerChat.acceptClientConnection(serverSocket);
             } catch (IOException e) {
                 e.printStackTrace();
             }
