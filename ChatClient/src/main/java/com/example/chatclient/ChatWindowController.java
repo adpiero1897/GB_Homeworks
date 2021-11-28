@@ -1,7 +1,6 @@
 package com.example.chatclient;
 
 import javafx.application.Platform;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
@@ -38,7 +37,6 @@ public class ChatWindowController {
         //Чтобы нельзя было послать пустое сообщение, проверяем, пустое ли поле ввода
         if (!SendText.getText().trim().isEmpty()) {
             chatClient.sendMessage(SendText.getText());  //передаем в метод отправки это наше сообщение
-            //chatTextArea.appendText("Вы: " + SendText.getText() + '\n');
             SendText.setText("");
         }
     }
@@ -47,21 +45,25 @@ public class ChatWindowController {
     protected void onConnectClick() {
         if (!isConnect) {
             chatClient = new ChatClient();  //Пробуем открыть соединение и потоки с сервером Сетевого чата
-            //chatTextArea.setText(chatTextArea.getText() + "Успешно установлено подключение к серверу сетевого чата! " + '\n');
         } else {    //Если уже есть открытое соединение с чатом
             chatClient.closeConnection();
-            //chatTextArea.setText(chatTextArea.getText() + "Вы отключились от сервера сетевого чата! " + '\n');
         }
     }
 
     //Обработчик выхода из окна сделаем, чтобы предварительно закрывать соединение с сервером (оповестить его о выходе)
     private javafx.event.EventHandler<WindowEvent> closeEventHandler = event -> {
-        chatClient.closeConnection(); //чтобы разлогиниться с сервера (доработка) перед закрытием приложения нашего
+        //чтобы разлогиниться с сервера (доработка) перед закрытием приложения нашего
+        chatClient.sendMessage("/esc");//Оповещаем сервер о том, что мы выходим: теперь ему можно перестать слушать наш сокет
+        try {
+            Thread.sleep(2000); //подождем 2 секунды перед выходом, чтобы сервер успел сам закрыть нам соединение
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         Platform.exit();
     };
 
     //Геттер для контроллера закрытия в main класс нашего приложения
-    public javafx.event.EventHandler<WindowEvent> getCloseEventHandler(){
+    public javafx.event.EventHandler<WindowEvent> getCloseEventHandler() {
         return closeEventHandler;
     }
 
@@ -77,13 +79,11 @@ public class ChatWindowController {
         public ChatClient() {
             try {
                 openConnection();
-
                 ConnectButton.setText("Отсоединиться");
                 SendText.setVisible(true);
                 SendButton.setVisible(true);
-                //chatTextArea.appendText("Успешно установлено подключение к серверу сетевого чата! " + '\n');
             } catch (IOException e) {
-                e.printStackTrace();
+                chatTextArea.appendText("Не удалось подсоединиться к серверу");
             }
         }
 
@@ -95,7 +95,8 @@ public class ChatWindowController {
                 try {
                     while (true) {
                         String serverMessage = in.readUTF();
-                        if (serverMessage.equalsIgnoreCase("/end")) {
+                        if (serverMessage.equalsIgnoreCase("/kick")) {
+                            closeConnection(); //Если с сервера прилетает команда /kick, то соединение с ним закрывается
                             break;
                         }
                         chatTextArea.appendText(serverMessage + "\n");
@@ -108,14 +109,14 @@ public class ChatWindowController {
 
         public void closeConnection() {
             try {
-                sendMessage("/esc");//Оповещаем сервер о том, что мы выходим: теперь ему можно перестать слушать наш сокет
                 in.close();
                 out.close();
                 socket.close();
                 isConnect = false;
-                //chatTextArea.setText(chatTextArea.getText() + "Вы отключились от сервера сетевого чата! " + '\n');
                 chatTextArea.appendText("Вы отключились от сервера сетевого чата! " + '\n');
                 ConnectButton.setText("Подсоединиться к серверу");
+                SendText.setVisible(false);
+                SendButton.setVisible(false);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -129,7 +130,6 @@ public class ChatWindowController {
                 chatTextArea.appendText("Ошибка отправки сообщения");
             }
         }
-
 
     }
 
