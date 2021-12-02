@@ -1,5 +1,4 @@
-import java.io.IOException;
-import java.net.ServerSocket;
+import ServerChatPackage.MyServer;
 
 /*1. Написать консольный вариант клиент\серверного приложения, в котором пользователь может писать сообщения, как на
 клиентской стороне, так и на серверной. Т.е. если на клиентской стороне написать "Привет", нажать Enter то сообщение
@@ -13,18 +12,7 @@ import java.net.ServerSocket;
 public class ServerApi {
 
     public static void main(String[] args) {
-        ServerChat.serverInputListener();
-        while (true) {  //Внешний цикл постоянной работы сервера. Если соединение прервано, мы готовы наладить новое
-            //переходим в режим ввода сообщений с консоли сервера (создаем поток, постоянно читающий консоль)
-            //ServerChat.serverInputListener();
-            //откроем соединение и подготовим сокет
-            try (ServerSocket serverSocket = new ServerSocket(8181)) {
-                ServerChat.acceptClientConnection(serverSocket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
+        new MyServer();
     }
 
 }

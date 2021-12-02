@@ -58,7 +58,7 @@ public class ChatWindowController {
         synchronized (monitor) {    //Синхронизируем задачу, чтобы она ждала, пока сервер отреагирует на наш выход
             chatClient.sendMessage("/esc");//Оповещаем сервер о том, что мы выходим: теперь ему можно перестать слушать наш сокет
             try {
-                if(!chatClient.socket.isClosed()) { //ждем, если коннект сокета не закрыт
+                if (!chatClient.socket.isClosed()) { //ждем, если коннект сокета не закрыт
                     monitor.wait(2000); //ждем максимум 2 секунды
                 }
             } catch (InterruptedException e) {
@@ -82,13 +82,11 @@ public class ChatWindowController {
         private Socket socket;
         private DataInputStream in;
         private DataOutputStream out;
+        private int authStep;   //Чтобы понимать, если мы находимся на каком-либо шаге авторизации
 
         public ChatClient() {
             try {
                 openConnection();
-                ConnectButton.setText("Отсоединиться");
-                SendText.setVisible(true);
-                SendButton.setVisible(true);
             } catch (IOException e) {
                 chatTextArea.appendText("Не удалось подсоединиться к серверу" + "\n");
             }
@@ -98,7 +96,14 @@ public class ChatWindowController {
             socket = new Socket(SERVER_ADDR, SERVER_PORT);
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
-            chatTextArea.appendText("Вы успешно вошли в сетевой чат! " + '\n');
+            isConnect = true;
+            chatTextArea.appendText("Вы соединились с сервером чата. Нужно авторизоваться." + '\n'
+                    + "Введите логин" + '\n');
+            ConnectButton.setText("Отсоединиться");
+            SendText.setVisible(true);
+            SendText.setPromptText("Введите логин");
+            authStep = 1;
+            SendButton.setVisible(true);
             new Thread(() -> {
                 try {
                     while (true) {
@@ -107,13 +112,25 @@ public class ChatWindowController {
                             closeConnection(); //Если с сервера прилетает команда /kick, то соединение с ним закрывается
                             break;
                         }
-                        chatTextArea.appendText(serverMessage + "\n");
+                        if (serverMessage.startsWith("/authok")) { //если ответ сервера: успешная авторизация
+                            authStep = 0;
+                            chatTextArea.appendText("Вы успешно авторизовались в чате" + '\n');
+                            SendText.setPromptText("Введите текст вашего сообщения ");
+                        } else if(serverMessage.startsWith("/autherror")){
+                            authStep = 1;   //возвращаемся на шаг ввода логина, если ошибка в логине/пароле нашем
+                            chatTextArea.appendText("Снова введите логин" + '\n');
+                            SendText.setPromptText("Введите логин");
+                        }
+                        else {
+                            chatTextArea.appendText(serverMessage + "\n");
+                        }
+
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }).start();
-            isConnect = true;
+
         }
 
         public void closeConnection() {
@@ -130,20 +147,24 @@ public class ChatWindowController {
                     monitor.notify();   //оповестили ивент закрытия окна, что сейчас можно выключать это приложение
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
-                catch (Exception ex){
-                    System.out.println("какая -то ошибка");
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
         }
 
         public void sendMessage(String message) {
-                try {
-                    out.writeUTF(message);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    chatTextArea.appendText("Ошибка отправки сообщения");
+            try {
+                out.writeUTF(message);
+                if (authStep == 1) {  //Если мы вводим пока ещё только свой логин в рамках авторизации
+                    chatTextArea.appendText("Теперь введите свой пароль" + '\n');
+                    SendText.setPromptText("Введите свой пароль");
+                    authStep = 2;
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
+                chatTextArea.appendText("Ошибка отправки сообщения" + '\n');
+            }
         }
 
     }
