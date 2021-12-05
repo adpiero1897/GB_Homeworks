@@ -24,6 +24,9 @@ public class ChatWindowController {
     private TextArea chatTextArea;
 
     @FXML
+    private TextArea clientsTextArea;
+
+    @FXML
     private TextField SendText;
 
     @FXML
@@ -56,6 +59,9 @@ public class ChatWindowController {
     private javafx.event.EventHandler<WindowEvent> closeEventHandler = event -> {
         //чтобы разлогиниться с сервера (доработка) перед закрытием приложения нашего
         synchronized (monitor) {    //Синхронизируем задачу, чтобы она ждала, пока сервер отреагирует на наш выход
+            if (chatClient == null) { //Если соединение с сервером не устанавливалось, то сразу выходим
+                Platform.exit();
+            }
             chatClient.sendMessage("/esc");//Оповещаем сервер о том, что мы выходим: теперь ему можно перестать слушать наш сокет
             try {
                 if (!chatClient.socket.isClosed()) { //ждем, если коннект сокета не закрыт
@@ -108,20 +114,29 @@ public class ChatWindowController {
                 try {
                     while (true) {
                         String serverMessage = in.readUTF();
-                        if (serverMessage.equalsIgnoreCase("/kick")) {
-                            closeConnection(); //Если с сервера прилетает команда /kick, то соединение с ним закрывается
-                            break;
-                        }
-                        if (serverMessage.startsWith("/authok")) { //если ответ сервера: успешная авторизация
-                            authStep = 0;
-                            chatTextArea.appendText("Вы успешно авторизовались в чате" + '\n');
-                            SendText.setPromptText("Введите текст вашего сообщения ");
-                        } else if(serverMessage.startsWith("/autherror")){
-                            authStep = 1;   //возвращаемся на шаг ввода логина, если ошибка в логине/пароле нашем
-                            chatTextArea.appendText("Снова введите логин" + '\n');
-                            SendText.setPromptText("Введите логин");
-                        }
-                        else {
+                        if (serverMessage.startsWith("/")) {    //блок системных команд
+                            String[] parts = serverMessage.split("\\s+");
+                            switch (parts[0].toLowerCase()) {
+                               case "/kick":
+                                    closeConnection(); //Если с сервера прилетает команда /kick, то соединение с ним закрывается
+                                    return;
+                                case "/authok":  //если ответ сервера: успешная авторизация
+                                    authStep = 0;
+                                    chatTextArea.appendText("Вы успешно авторизовались в чате как " + parts[1] + '\n');
+                                    SendText.setPromptText("Введите текст вашего сообщения ");
+                                    break;
+                                case "/autherror ":
+                                    authStep = 1;   //возвращаемся на шаг ввода логина, если ошибка в логине/пароле нашем
+                                    chatTextArea.appendText("Ошибка авторизации под ником " + parts[1] + '\n'
+                                            + "Снова введите логин" + '\n');
+                                    SendText.setPromptText("Введите логин");
+                                    break;
+                                case "/clients":    //если сервер передает нам список клиентов чата
+                                    clientsTextArea.setText(serverMessage.substring(parts[0].length()+1));
+                                    //выведем присланный нам список клиентов чата
+                                    break;
+                            }
+                        } else {
                             chatTextArea.appendText(serverMessage + "\n");
                         }
 
@@ -129,31 +144,34 @@ public class ChatWindowController {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                finally {
+                    closeConnection();      //Если соединение с сервером обрывается по какой-то причине
+                }
             }).start();
 
         }
 
-        public void closeConnection() {
+        public synchronized void closeConnection() {
             synchronized (monitor) {    //Синхронизируем по монитору, чтобы обеспечить синхронность ивента закрытия нашего окна
                 try {
-                    in.close();
-                    out.close();
-                    socket.close();
-                    isConnect = false;
-                    chatTextArea.appendText("Вы отключились от сервера сетевого чата! " + '\n');
-                    ConnectButton.setText("Подсоединиться к серверу");
-                    SendText.setVisible(false);
-                    SendButton.setVisible(false);
-                    monitor.notify();   //оповестили ивент закрытия окна, что сейчас можно выключать это приложение
+                    if(isConnect) { //Если уже отсоединены, то отсоединять уже не надо
+                        in.close();
+                        out.close();
+                        socket.close();
+                        isConnect = false;
+                        chatTextArea.appendText("Вы отключились от сервера сетевого чата! " + '\n');
+                        ConnectButton.setText("Подсоединиться к серверу");
+                        SendText.setVisible(false);
+                        SendButton.setVisible(false);
+                        monitor.notify();   //оповестили ивент закрытия окна, что сейчас можно выключать это приложение
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
                 }
             }
         }
 
-        public void sendMessage(String message) {
+        public synchronized void sendMessage(String message) {
             try {
                 out.writeUTF(message);
                 if (authStep == 1) {  //Если мы вводим пока ещё только свой логин в рамках авторизации

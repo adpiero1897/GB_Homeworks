@@ -41,6 +41,7 @@ public class ClientHandler {
     }
 
     public void authorization() throws IOException {
+        socket.setSoTimeout(120000); //отключение неавторизованных пользователей по времени (120 сек)
         String login = "";
         int authStep = 1;   //Показывает шаг авторизации клиента (вводит ли он сейчас нам свой логин или пароль)
         while (authStep < 3) {  //пока пользователь не залогинится, цикл повторяется
@@ -52,6 +53,7 @@ public class ClientHandler {
                 String nick = myServer.getAuthService().getNickByLoginPass(login, str);
                 if (nick != null) {
                     if (!myServer.isNickBusy(nick)) {
+                        socket.setSoTimeout(0);    //вернем дефолтное значение для ожидания сообщений клиента
                         sendMessageToClient("/authok " + nick);
                         name = nick;
                         myServer.broadcastMsg(name + " зашел в чат");
@@ -65,7 +67,7 @@ public class ClientHandler {
                     }
                 } else {
                     sendMessageToClient("Неверные логин/пароль");
-                    sendMessageToClient("/autherror");
+                    sendMessageToClient("/autherror " + login);
                     authStep = 0;
                     login = "";
                 }
@@ -80,28 +82,35 @@ public class ClientHandler {
         while (true) {
             String strFromClient = in.readUTF();
             System.out.println("от " + name + ": " + strFromClient);
-            if (strFromClient.equals("/esc")) {
-                sendMessageToClient("/kick");
-                myServer.unsubscribe(this);
-                return;
-            } else if (strFromClient.equalsIgnoreCase("/end")) {
-                myServer.broadcastMsg("Отключение сервера по команде клиента " + name);
-                //Оповещаем об отключение сервера
-                myServer.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него (пока что одного)
-                System.exit(100); //пусть 100 - код выхода по просьбе со стороны клиента
-            } else {    //Если ни одно из этих служебных, то просто рассылаем это сообщение клиента
-                if (strFromClient.startsWith("/w ")) {    //Если клиент послал личное сообщение кому-то
-                    String[] parts = strFromClient.split("\\s+");
-                    if(parts.length > 2) {  //иначе пустое сообщение отправлять не будем
-                        myServer.broadcastMsg(strFromClient.substring(parts[1].length()+4), this.getName(), parts[1]);
-                        //перегрузка метода для отправки личного сообщения, начало которого (указание адресата) отрезаем
-                    }
-                } else {    //Если на всех в чате сообщение от клиента
-                    myServer.broadcastMsg(name + ": " + strFromClient);
+            if (strFromClient.startsWith("/")) {    //блок системных команд
+                String[] parts = strFromClient.split("\\s+");
+
+                switch (parts[0].toLowerCase()) {
+                    case "/esc":
+                        sendMessageToClient("/kick");
+                        myServer.unsubscribe(this);
+                        return;
+                    case "/end":
+                        myServer.broadcastMsg("Отключение сервера по команде клиента " + name);
+                        //Оповещаем об отключение сервера
+                        myServer.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него (пока что одного)
+                        System.exit(100); //пусть 100 - код выхода по просьбе со стороны клиента
+                        break;
+                    case "/w": //Если ни одно из этих служебных, то просто рассылаем это сообщение клиента
+                        if (parts.length > 2) {  //иначе пустое сообщение отправлять не будем
+                            myServer.broadcastMsg(strFromClient.substring(parts[1].length() + 4), this.getName(), parts[1]);
+                            //перегрузка метода для отправки личного сообщения, начало которого (указание адресата) отрезаем
+                        }
+                        break;
+                    default: this.sendMessageToClient("Системная команда " + parts[0] + " не распознана");
                 }
+            } else {    //Если на всех в чате сообщение от клиента
+                myServer.broadcastMsg(name + ": " + strFromClient);
             }
         }
     }
+
+
 
     public void sendMessageToClient(String msg) {
         try {

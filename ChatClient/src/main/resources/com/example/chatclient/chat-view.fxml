@@ -17,12 +17,19 @@
 
     <Button fx:id="ConnectButton" text="Подсоединиться к серверу" onAction="#onConnectClick"/>
 
-    <TextArea fx:id="chatTextArea" VBox.vgrow="ALWAYS" editable="false"/>
+    <HBox  alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
+        <padding>
+            <Insets top="10" bottom="1" left="5" right="5"/>
+        </padding>
+        <TextArea fx:id="chatTextArea" VBox.vgrow="ALWAYS" editable="false" prefWidth="400"/>
+        <TextArea fx:id="clientsTextArea" VBox.vgrow="ALWAYS" editable="false" prefWidth = "150" text="Сейчас в чате:"/>
+    </HBox>
 
     <HBox  alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
         <padding>
             <Insets top="10" bottom="1" left="5" right="5"/>
         </padding>
+
 
         <TextField fx:id="SendText" nodeOrientation="LEFT_TO_RIGHT" prefColumnCount="35"
                    promptText="Введите текст вашего сообщения "

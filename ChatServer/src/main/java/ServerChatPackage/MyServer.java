@@ -13,6 +13,7 @@ public class MyServer {
     private static final Scanner SC = new Scanner(System.in);
     private Thread inputServerThread;
 
+
     private AuthService authService;
     private List<ClientHandler> clients;
 
@@ -31,7 +32,8 @@ public class MyServer {
                             String[] parts = str.split("\\s+");
                             if (str.equalsIgnoreCase("/end")) {
                                 authService.stop();
-                                this.broadcastMsg("*** ОБЩЕЕ ОТКЛЮЧЕНИЕ СЕРВЕРА"); //Перед выключением сервера выкинем всех клиентов с него
+                                //Перед выключением сервера выкинем всех клиентов с него
+                                this.broadcastMsg("*** ОБЩЕЕ ОТКЛЮЧЕНИЕ СЕРВЕРА");
                                 this.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него
                                 System.exit(10); //10 - код выхода по просьбе со стороны СЕРВЕРА
                             } else if (parts[0].equalsIgnoreCase("/kick")) {
@@ -123,10 +125,22 @@ public class MyServer {
 
     public synchronized void unsubscribe(ClientHandler o) {
         clients.remove(o);
+        //Оповещаем всех авторизованных клиентов об изменении списка участников чата
+        StringBuilder sb = new StringBuilder("/clients Сейчас в чате:\n");
+        for (ClientHandler cl : clients) {
+            sb.append(cl.getName() + '\n');
+        }
+        broadcastMsg(sb.toString());
     }
 
     public synchronized void subscribe(ClientHandler o) {
         clients.add(o);
+        //Оповещаем всех авторизованных клиентов об изменении списка участников чата
+        StringBuilder sb = new StringBuilder("/clients Сейчас в чате:\n");
+        for (ClientHandler cl : clients) {
+            sb.append(cl.getName() + '\n');
+        }
+        broadcastMsg(sb.toString());
     }
 
 
