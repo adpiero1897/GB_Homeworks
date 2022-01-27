@@ -86,7 +86,7 @@ public class ClientHandler {
                 String[] parts = strFromClient.split("\\s+");
 
                 switch (parts[0].toLowerCase()) {
-                    case "/esc":
+                    case "/esc":    //Клиент просит нас выкинуть его с сервера
                         sendMessageToClient("/kick");
                         myServer.unsubscribe(this);
                         return;
@@ -96,20 +96,31 @@ public class ClientHandler {
                         myServer.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него (пока что одного)
                         System.exit(100); //пусть 100 - код выхода по просьбе со стороны клиента
                         break;
-                    case "/w": //Если ни одно из этих служебных, то просто рассылаем это сообщение клиента
+                    case "/w": //Если пользователь пытается послать приватное сообщение другому пользователю
                         if (parts.length > 2) {  //иначе пустое сообщение отправлять не будем
                             myServer.broadcastMsg(strFromClient.substring(parts[1].length() + 4), this.getName(), parts[1]);
                             //перегрузка метода для отправки личного сообщения, начало которого (указание адресата) отрезаем
                         }
                         break;
-                    default: this.sendMessageToClient("Системная команда " + parts[0] + " не распознана");
+                    case "/chnick":
+                        //Вызываем метод изменения никнейма в базе. Если всё успешно, то он возвращает true.
+                        if (parts.length == 2 && myServer.getAuthService().changeNick(this.name,parts[1])) {
+                            String nick_old = name;
+                            name = parts[1];
+                            this.sendMessageToClient("Ваш никнейм был успешно изменен на " + parts[1] + " !");
+                            myServer.nickChanged(nick_old,name);   //оповещаем всех клиентов, кто, на какой, ник поменял
+                        } else {
+                            this.sendMessageToClient("Попытка изменения никнейма не удалась: некорретное новое имя");
+                        }
+                        break;
+                    default:
+                        this.sendMessageToClient("Системная команда " + parts[0] + " не распознана");
                 }
             } else {    //Если на всех в чате сообщение от клиента
                 myServer.broadcastMsg(name + ": " + strFromClient);
             }
         }
     }
-
 
 
     public void sendMessageToClient(String msg) {

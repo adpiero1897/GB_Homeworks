@@ -59,7 +59,7 @@ public class MyServer {
         inputServerThread.start();
 
         try (ServerSocket server = new ServerSocket(PORT)) {
-            authService = new BaseAuthService();
+            authService = new DatabaseAuthService();
             authService.start();
             clients = new ArrayList<>();
             while (true) {  //зацикливаем основной поток серверной программы на принятие подключений от сокетов клиентов
@@ -143,6 +143,15 @@ public class MyServer {
         broadcastMsg(sb.toString());
     }
 
+    public synchronized void nickChanged(String nickOld, String nickNew) {
+        //Оповещаем всех авторизованных клиентов об изменении списка участников чата
+        broadcastMsg("Пользователь " + nickOld + " поменял никнейм на " + nickNew);
+        StringBuilder sb = new StringBuilder("/clients Сейчас в чате:\n");
+        for (ClientHandler cl : clients) {
+            sb.append(cl.getName() + '\n');
+        }
+        broadcastMsg(sb.toString());
+    }
 
     public AuthService getAuthService() {
         return authService;
