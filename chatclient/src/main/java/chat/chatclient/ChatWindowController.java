@@ -8,11 +8,9 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.stage.WindowEvent;
 
-
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
 
 
 public class ChatWindowController {
@@ -20,6 +18,9 @@ public class ChatWindowController {
     private ChatClient chatClient;  //Объект для коннекта и передачи сообщений с сетевым чатом
     boolean isConnect = false;
     private final Object monitor = new Object();
+
+    BufferedWriter logWriter;   //объявляем сразу в классе, чтобы не переоткрывать поток кучу раз
+    private final int MAX_LOG_COUNT_STRINGS = 100;  //Установим сразу сколько мы последних строк читаем из логов чата
 
     @FXML
     private TextArea chatTextArea;
@@ -35,6 +36,28 @@ public class ChatWindowController {
 
     @FXML
     private Button ConnectButton;
+
+    //Метод для подгрузки последних 100 строк из логов чата при каждом запуске клиентского приложения
+    public void readChatLog() {
+        ArrayList<String> listStringsLog = new ArrayList<>();
+        String str="";
+        int countStrings = 0;  //максимум читаем 100 последних строк из логов
+        try (BufferedReader reader = new BufferedReader(new FileReader("chatLog.txt"))) { //название файла-логов
+            //заполним лист строк из лога
+            String strRead;
+            while ((strRead = reader.readLine()) != null) {
+                listStringsLog.add(strRead);
+                countStrings++;
+            }
+            //зальем последние countStrings = 100 строк из Листа прочитанных строк лога
+            for (int i = listStringsLog.size() - Math.min(MAX_LOG_COUNT_STRINGS, countStrings);
+                 i < listStringsLog.size(); i++) {
+                str += listStringsLog.get(i) + '\n';
+            }
+            chatTextArea.setText(str);
+        } catch (IOException ignored) {
+        }
+    }
 
     //ОСНОВНАЯ ЧАСТЬ: При нажатии Enter или кнопки "отправить" перекидываем текст в общее поле TextArea
     @FXML
@@ -61,6 +84,14 @@ public class ChatWindowController {
         //чтобы разлогиниться с сервера (доработка) перед закрытием приложения нашего
         synchronized (monitor) {    //Синхронизируем задачу, чтобы она ждала, пока сервер отреагирует на наш выход
             if (chatClient == null) { //Если соединение с сервером не устанавливалось, то сразу выходим
+                //Предварительно закрываем соединение с логом, т.к. оно открыто перманентно
+                try {
+                    if (logWriter != null) {
+                        logWriter.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 Platform.exit();
             }
             chatClient.sendMessage("/esc");//Оповещаем сервер о том, что мы выходим: теперь ему можно перестать слушать наш сокет
@@ -71,6 +102,14 @@ public class ChatWindowController {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             } finally {
+                //Предварительно закрываем соединение с логом, т.к. оно открыто перманентно
+                try {
+                    if (logWriter != null) {
+                        logWriter.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 Platform.exit();    //в любом случае по нажатию "крестика" окно приложения закрывается
             }
         }
@@ -80,6 +119,7 @@ public class ChatWindowController {
     public javafx.event.EventHandler<WindowEvent> getCloseEventHandler() {
         return closeEventHandler;
     }
+
 
     //Внутренний подкласс для коннекта и передачи сообщений с сетевым чатом
     public class ChatClient {
@@ -95,7 +135,7 @@ public class ChatWindowController {
             try {
                 openConnection();
             } catch (IOException e) {
-                chatTextArea.appendText("Не удалось подсоединиться к серверу" + "\n");
+                printChatText("Не удалось подсоединиться к серверу" + "\n");
             }
         }
 
@@ -104,7 +144,7 @@ public class ChatWindowController {
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
             isConnect = true;
-            chatTextArea.appendText("Вы соединились с сервером чата. Нужно авторизоваться." + '\n'
+            printChatText("Вы соединились с сервером чата. Нужно авторизоваться." + '\n'
                     + "Введите логин" + '\n');
             ConnectButton.setText("Отсоединиться");
             SendText.setVisible(true);
@@ -123,29 +163,28 @@ public class ChatWindowController {
                                     return;
                                 case "/authok":  //если ответ сервера: успешная авторизация
                                     authStep = 0;
-                                    chatTextArea.appendText("Вы успешно авторизовались в чате как " + parts[1] + '\n');
+                                    printChatText("Вы успешно авторизовались в чате как " + parts[1] + '\n');
                                     SendText.setPromptText("Введите текст вашего сообщения ");
                                     break;
                                 case "/autherror ":
                                     authStep = 1;   //возвращаемся на шаг ввода логина, если ошибка в логине/пароле нашем
-                                    chatTextArea.appendText("Ошибка авторизации под ником " + parts[1] + '\n'
+                                    printChatText("Ошибка авторизации под ником " + parts[1] + '\n'
                                             + "Снова введите логин" + '\n');
                                     SendText.setPromptText("Введите логин");
                                     break;
                                 case "/clients":    //если сервер передает нам список клиентов чата
-                                    clientsTextArea.setText(serverMessage.substring(parts[0].length()+1));
+                                    clientsTextArea.setText(serverMessage.substring(parts[0].length() + 1));
                                     //выведем присланный нам список клиентов чата
                                     break;
                             }
                         } else {
-                            chatTextArea.appendText(serverMessage + "\n");
+                            printChatText(serverMessage + "\n");
                         }
 
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                }
-                finally {
+                } finally {
                     closeConnection();      //Если соединение с сервером обрывается по какой-то причине
                 }
             }).start();
@@ -155,12 +194,12 @@ public class ChatWindowController {
         public synchronized void closeConnection() {
             synchronized (monitor) {    //Синхронизируем по монитору, чтобы обеспечить синхронность ивента закрытия нашего окна
                 try {
-                    if(isConnect) { //Если уже отсоединены, то отсоединять уже не надо
+                    if (isConnect) { //Если уже отсоединены, то отсоединять уже не надо
                         in.close();
                         out.close();
                         socket.close();
                         isConnect = false;
-                        chatTextArea.appendText("Вы отключились от сервера сетевого чата! " + '\n');
+                        printChatText("Вы отключились от сервера сетевого чата! " + '\n');
                         ConnectButton.setText("Подсоединиться к серверу");
                         SendText.setVisible(false);
                         SendButton.setVisible(false);
@@ -176,13 +215,25 @@ public class ChatWindowController {
             try {
                 out.writeUTF(message);
                 if (authStep == 1) {  //Если мы вводим пока ещё только свой логин в рамках авторизации
-                    chatTextArea.appendText("Теперь введите свой пароль" + '\n');
+                    printChatText("Теперь введите свой пароль" + '\n');
                     SendText.setPromptText("Введите свой пароль");
                     authStep = 2;
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                chatTextArea.appendText("Ошибка отправки сообщения" + '\n');
+                printChatText("Ошибка отправки сообщения" + '\n');
+            }
+        }
+
+        //метод связывающий запись в логи того, что пишется в окно чата
+        public synchronized void printChatText(String text) {
+            chatTextArea.appendText(text);  //пишем в поле чата всегда
+            try {
+                if (logWriter == null)
+                    logWriter = new BufferedWriter(new FileWriter("chatLog.txt"));
+                logWriter.write(text);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
 
