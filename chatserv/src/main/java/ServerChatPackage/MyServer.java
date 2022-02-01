@@ -6,12 +6,15 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MyServer {
 
     private final int PORT = 8181;
     private static final Scanner SC = new Scanner(System.in);
-    private Thread inputServerThread;
+    private ExecutorService execService;
+    private final int MAX_CHAT_CLIENTS=10;
 
 
     private AuthService authService;
@@ -20,7 +23,10 @@ public class MyServer {
     public MyServer() {
 
         //Чтобы сервер участвовал в чате и контролировал его, создадим поток, чтения ввода из консоли самого сервера
-        inputServerThread = new Thread(() -> {
+        //Ниже ограничимся MAX_CHAT_CLIENTS(10) клиентами в чате (+1 поток ввода сервера)
+        execService = Executors.newFixedThreadPool(MAX_CHAT_CLIENTS+1);
+        //execService = Executors.newCachedThreadPool();  //Если наш чат "Резиновый" и принимает бесконечно клиентов
+        execService.execute(() -> {
             //А пока этот поток работает, мы можем сами общаться с клиентом, благодаря циклу ниже
             while (true) {  //Внутренний цикл чтения команд из консоли сервера.
                 //Объявляем переменную входящей строки до цикла чтения с потока
@@ -31,10 +37,12 @@ public class MyServer {
                         if (!str.trim().isEmpty()) {    //на пустой ввод в консоли никак не реагируем
                             String[] parts = str.split("\\s+");
                             if (str.equalsIgnoreCase("/end")) {
-                                authService.stop();
                                 //Перед выключением сервера выкинем всех клиентов с него
                                 this.broadcastMsg("*** ОБЩЕЕ ОТКЛЮЧЕНИЕ СЕРВЕРА");
                                 this.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него
+                                //Перед стопом серверного приложения, закроем executeservice и соединение с БД авторизации
+                                authService.stop();
+                                execService.shutdown();
                                 System.exit(10); //10 - код выхода по просьбе со стороны СЕРВЕРА
                             } else if (parts[0].equalsIgnoreCase("/kick")) {
                                 //реакция на команду /kick от сервера (/kick имя_клиента_чата) - изгнание
@@ -56,7 +64,7 @@ public class MyServer {
                 }
             }
         });
-        inputServerThread.start();
+
 
         try (ServerSocket server = new ServerSocket(PORT)) {
             authService = new DatabaseAuthService();
@@ -155,6 +163,10 @@ public class MyServer {
 
     public AuthService getAuthService() {
         return authService;
+    }
+
+    public ExecutorService getExecutorService() {
+        return execService;
     }
 
 }

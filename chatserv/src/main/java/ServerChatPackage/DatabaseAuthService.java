@@ -82,7 +82,7 @@ public class DatabaseAuthService implements AuthService {
             rs.next();
             nick = rs.getString("nickname");
         } catch (SQLException e) {
-            e.printStackTrace();
+            return null;
         }
         return nick;
     }

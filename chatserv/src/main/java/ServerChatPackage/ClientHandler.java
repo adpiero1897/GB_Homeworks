@@ -25,7 +25,8 @@ public class ClientHandler {
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
             this.name = "";
-            new Thread(() -> {
+
+            myServer.getExecutorService().execute(() -> {
                 try {
                     authorization();
                     readMessages();
@@ -34,7 +35,7 @@ public class ClientHandler {
                 } finally {
                     closeConnection();
                 }
-            }).start();
+            });
         } catch (IOException e) {
             throw new RuntimeException("Проблемы при создании обработчика клиента");
         }
@@ -94,6 +95,9 @@ public class ClientHandler {
                         myServer.broadcastMsg("Отключение сервера по команде клиента " + name);
                         //Оповещаем об отключение сервера
                         myServer.broadcastMsg("/kick"); //Перед выключением сервера выкинем всех клиентов с него (пока что одного)
+                        //Перед стопом серверного приложения, закроем executeservice и соединение с БД авторизации
+                        myServer.getExecutorService().shutdown();
+                        myServer.getAuthService().stop();
                         System.exit(100); //пусть 100 - код выхода по просьбе со стороны клиента
                         break;
                     case "/w": //Если пользователь пытается послать приватное сообщение другому пользователю
