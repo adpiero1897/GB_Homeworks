@@ -1,5 +1,8 @@
 package ServerChatPackage;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -7,7 +10,7 @@ import java.sql.Statement;
 
 public class DatabaseAuthService implements AuthService {
 
-
+    private static final Logger LOGGER = LogManager.getLogger(MyServer.class.getName());
     private static Connection conn;
     private static Statement stmt;
 
@@ -17,10 +20,10 @@ public class DatabaseAuthService implements AuthService {
             conn = DBConnection.getConn();
             stmt = conn.createStatement();
         } catch (java.sql.SQLException e) {
-            e.printStackTrace();
+            LOGGER.error( e.getStackTrace());
         }
 
-        System.out.println("Сервис аутентификации запущен");
+        LOGGER.info("Сервис аутентификации запущен");
     }
 
     @Override
@@ -29,10 +32,10 @@ public class DatabaseAuthService implements AuthService {
             try {
                 conn.close();
             } catch (SQLException e) {
-                e.printStackTrace();
+                LOGGER.error( e.getStackTrace());
             }
         }
-        System.out.println("Сервис аутентификации остановлен");
+        LOGGER.info("Сервис аутентификации остановлен");
     }
 
     //Таблица на sqlite создавалась кодом ниже:

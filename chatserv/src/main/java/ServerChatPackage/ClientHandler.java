@@ -1,5 +1,8 @@
 package ServerChatPackage;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -7,6 +10,7 @@ import java.net.Socket;
 
 public class ClientHandler {
 
+    private static final Logger LOGGER = LogManager.getLogger(MyServer.class.getName());
     private MyServer myServer;
     private Socket socket;
     private DataInputStream in;
@@ -82,7 +86,6 @@ public class ClientHandler {
     public void readMessages() throws IOException {
         while (true) {
             String strFromClient = in.readUTF();
-            System.out.println("от " + name + ": " + strFromClient);
             if (strFromClient.startsWith("/")) {    //блок системных команд
                 String[] parts = strFromClient.split("\\s+");
 
@@ -108,17 +111,20 @@ public class ClientHandler {
                         break;
                     case "/chnick":
                         //Вызываем метод изменения никнейма в базе. Если всё успешно, то он возвращает true.
-                        if (parts.length == 2 && myServer.getAuthService().changeNick(this.name,parts[1])) {
+                        if (parts.length == 2 && myServer.getAuthService().changeNick(this.name, parts[1])) {
                             String nick_old = name;
                             name = parts[1];
                             this.sendMessageToClient("Ваш никнейм был успешно изменен на " + parts[1] + " !");
-                            myServer.nickChanged(nick_old,name);   //оповещаем всех клиентов, кто, на какой, ник поменял
+                            LOGGER.info("никнейм " + nick_old + " был успешно изменен на " + parts[1] + " !");
+                            myServer.nickChanged(nick_old, name);   //оповещаем всех клиентов, кто, на какой, ник поменял
                         } else {
                             this.sendMessageToClient("Попытка изменения никнейма не удалась: некорретное новое имя");
+                            LOGGER.info("Попытка смены никнейма " + name + " не удалась!");
                         }
                         break;
                     default:
                         this.sendMessageToClient("Системная команда " + parts[0] + " не распознана");
+                        LOGGER.info("Системная команда " + parts[0] + " не распознана от клиента " + name);;
                 }
             } else {    //Если на всех в чате сообщение от клиента
                 myServer.broadcastMsg(name + ": " + strFromClient);
@@ -131,7 +137,7 @@ public class ClientHandler {
         try {
             out.writeUTF(msg);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getStackTrace());
         }
     }
 
@@ -142,17 +148,17 @@ public class ClientHandler {
         try {
             in.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getStackTrace());
         }
         try {
             out.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getStackTrace());
         }
         try {
             socket.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getStackTrace());
         }
     }
 

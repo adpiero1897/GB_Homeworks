@@ -1,5 +1,9 @@
 package ServerChatPackage;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,7 +13,10 @@ import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+
 public class MyServer {
+
+    private static final Logger LOGGER = LogManager.getLogger(MyServer.class.getName());
 
     private final int PORT = 8181;
     private static final Scanner SC = new Scanner(System.in);
@@ -21,7 +28,7 @@ public class MyServer {
     private List<ClientHandler> clients;
 
     public MyServer() {
-
+        LOGGER.atLevel(Level.ALL);
         //Чтобы сервер участвовал в чате и контролировал его, создадим поток, чтения ввода из консоли самого сервера
         //Ниже ограничимся MAX_CHAT_CLIENTS(10) клиентами в чате (+1 поток ввода сервера)
         execService = Executors.newFixedThreadPool(MAX_CHAT_CLIENTS+1);
@@ -54,13 +61,15 @@ public class MyServer {
                                     }
                                 }
                                 this.broadcastMsg("*** " + parts[1] + " был выгнан из чата");
+                                LOGGER.info("*** " + parts[1] + " был выгнан из чата");
                             } else {
                                 this.broadcastMsg("*сервер*: " + str);
+                                LOGGER.info("*сервер*: " + str);
                             }
                         }
                     }
                 } catch (IndexOutOfBoundsException exception) {
-                    System.out.println("ошибка сканера");
+                    LOGGER.error("ошибка сканера");
                 }
             }
         });
@@ -71,13 +80,13 @@ public class MyServer {
             authService.start();
             clients = new ArrayList<>();
             while (true) {  //зацикливаем основной поток серверной программы на принятие подключений от сокетов клиентов
-                System.out.println("Сервер ожидает подключения...");
+                LOGGER.info("Сервер ожидает подключения...");
                 Socket socket = server.accept();
-                System.out.println("Клиент подключился");
+                LOGGER.info("Клиент подключился");
                 new ClientHandler(this, socket);
             }
         } catch (IOException e) {
-            System.out.println("Ошибка в работе сервера");
+            LOGGER.error("Ошибка в работе сервера");
         } finally {
             if (authService != null) {
                 authService.stop();
@@ -96,6 +105,7 @@ public class MyServer {
 
     //метод рассылки сообщение из чата на всех
     public synchronized void broadcastMsg(String msg) {
+        LOGGER.info(msg);
         for (ClientHandler acceptor : clients) {
             acceptor.sendMessageToClient(msg);
         }
@@ -103,10 +113,12 @@ public class MyServer {
 
     //перегрузка метода рассылки для Личных сообщений
     public synchronized void broadcastMsg(String msg, String nickSender, String nickAcceptor) {
+        LOGGER.info(msg + " сообщение от клиента " + nickSender + " для клиента" +nickAcceptor);
         if(nickSender.equals(nickAcceptor)) {//Если сообщение послано самому себе было от клиента
             for (ClientHandler sender : clients) {
                 if (sender.getName().equals(nickSender)) {
                     sender.sendMessageToClient("Иногда бывает полезно наладить диалог с самим собой");
+                    LOGGER.info(msg + " сообщение от клиента не нашло адресата");
                     return;     //Не будем далее отсылать пользовательское сообщение самому себе
                 }
             }
@@ -138,7 +150,10 @@ public class MyServer {
         for (ClientHandler cl : clients) {
             sb.append(cl.getName() + '\n');
         }
-        broadcastMsg(sb.toString());
+        //Разошлем всем обновивший список клиентов в чате
+        for (ClientHandler acceptor : clients) {
+            acceptor.sendMessageToClient(sb.toString());
+        }
     }
 
     public synchronized void subscribe(ClientHandler o) {
@@ -148,7 +163,11 @@ public class MyServer {
         for (ClientHandler cl : clients) {
             sb.append(cl.getName() + '\n');
         }
-        broadcastMsg(sb.toString());
+
+        //Разошлем всем обновивший список клиентов в чате
+        for (ClientHandler acceptor : clients) {
+            acceptor.sendMessageToClient(sb.toString());
+        }
     }
 
     public synchronized void nickChanged(String nickOld, String nickNew) {
@@ -158,7 +177,10 @@ public class MyServer {
         for (ClientHandler cl : clients) {
             sb.append(cl.getName() + '\n');
         }
-        broadcastMsg(sb.toString());
+        //Разошлем всем обновивший список клиентов в чате
+        for (ClientHandler acceptor : clients) {
+            acceptor.sendMessageToClient(sb.toString());
+        }
     }
 
     public AuthService getAuthService() {
